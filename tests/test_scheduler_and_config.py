@@ -1,4 +1,5 @@
 import plistlib
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -45,7 +46,8 @@ def test_config_roundtrip_and_normalization(tmp_path):
     path = tmp_path / "config.json"
     save_config(config, path)
     assert load_config(path) == config
-    assert oct(path.stat().st_mode & 0o777) == "0o600"
+    if sys.platform != "win32":
+        assert oct(path.stat().st_mode & 0o777) == "0o600"
 
 
 def test_config_validation():

@@ -6,3 +6,4 @@ dist/
 *.spec
 test.env
 .pytest_cache/
+.venv-win/
