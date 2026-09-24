@@ -25,6 +25,10 @@ class MailAuthError(MailError):
     pass
 
 
+class MailConnectionError(MailError):
+    pass
+
+
 @dataclass(frozen=True)
 class Folder:
     name: str
@@ -140,7 +144,7 @@ class MailSource:
         try:
             self.conn = imaplib.IMAP4_SSL(self.server, timeout=self.timeout)
         except (OSError, ssl.SSLError, socket.timeout) as error:
-            raise MailError(f"Нет связи с почтовым сервером {self.server}: {error}") from error
+            raise MailConnectionError(f"Нет связи с почтовым сервером {self.server}: {error}") from error
         try:
             self.conn.login(self.email, self.password)
         except imaplib.IMAP4.error as error:
@@ -161,7 +165,9 @@ class MailSource:
             raise MailError("Нет подключения к почте.")
         try:
             status, data = getattr(self.conn, command)(*args)
-        except (imaplib.IMAP4.error, OSError) as error:
+        except (imaplib.IMAP4.abort, OSError) as error:
+            raise MailConnectionError(f"Связь с почтовым сервером прервалась: {error}") from error
+        except imaplib.IMAP4.error as error:
             raise MailError(f"Ошибка почтового сервера ({command}): {error}") from error
         if status != "OK":
             raise MailError(f"Почтовый сервер ответил {status} на {command}: {data}")

@@ -190,3 +190,28 @@ def test_messages_without_attachments_do_not_create_folders():
 
     assert report.ok and report.messages == 1
     assert disk.folders == {ROOT}
+
+
+def test_network_outages_never_make_a_message_skipped():
+    inbox = FakeFolder(messages={1: msg("a.pdf", b"A"), 2: msg("b.pdf", b"B")})
+    mail, disk, store = FakeMail({"INBOX": inbox}), FakeDisk(), MemoryStore()
+    disk.network_down = MAX_ATTEMPTS + 2
+
+    for _ in range(MAX_ATTEMPTS + 2):
+        report = run(mail, disk, store)
+        assert not report.ok and not report.given_up
+    assert store.state.failures == {}
+
+    final = run(mail, disk, store)
+    assert final.ok
+    assert len(disk.files) == 2
+
+
+def test_network_outage_stops_remaining_folders():
+    folders = {"INBOX": FakeFolder(messages={1: msg("a.pdf", b"A")}), "Работа": FakeFolder(messages={1: msg("b.pdf", b"B")})}
+    mail, disk = FakeMail(folders), FakeDisk()
+    disk.network_down = 1
+    report = run(mail, disk, MemoryStore())
+
+    assert len(report.errors) == 1
+    assert mail.fetched == [("INBOX", 1)]

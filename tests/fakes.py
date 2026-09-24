@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from email.message import EmailMessage
 
-from mail2disk.disk import DiskAuthError, DiskError, RemoteFile
+from mail2disk.disk import DiskAuthError, DiskConnectionError, DiskError, RemoteFile
 from mail2disk.imap_source import Folder, MailError
 from mail2disk.state import State
 
@@ -77,6 +77,7 @@ class FakeDisk:
         self.files: dict[str, bytes] = {}
         self.folders: set[str] = set()
         self.fail_uploads = 0
+        self.network_down = 0
         self.auth_broken = False
 
     def check(self):
@@ -97,6 +98,9 @@ class FakeDisk:
     def upload(self, path, data, overwrite=False):
         if self.auth_broken:
             raise DiskAuthError("нет доступа")
+        if self.network_down > 0:
+            self.network_down -= 1
+            raise DiskConnectionError("нет связи с Яндекс Диском")
         if self.fail_uploads > 0:
             self.fail_uploads -= 1
             raise DiskError("Диск временно недоступен")

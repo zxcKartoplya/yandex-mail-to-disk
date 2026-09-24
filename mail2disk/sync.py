@@ -6,8 +6,8 @@ from datetime import date, datetime, timedelta
 
 from .attachments import Attachment, extract_attachments
 from .config import Config
-from .disk import DiskAuthError, DiskError
-from .imap_source import Folder, MailAuthError, MailError, should_scan
+from .disk import DiskAuthError, DiskConnectionError, DiskError
+from .imap_source import Folder, MailAuthError, MailConnectionError, MailError, should_scan
 from .names import decode_filename, numbered_filename
 from .state import FolderState, State
 
@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 MAX_SAME_NAMES = 500
+FATAL_ERRORS = (DiskAuthError, DiskConnectionError, MailAuthError, MailConnectionError)
 
 
 @dataclass
@@ -68,10 +69,7 @@ class Syncer:
             for folder in folders:
                 try:
                     self._sync_folder(folder, state, report)
-                except DiskAuthError as error:
-                    report.errors.append(str(error))
-                    break
-                except MailAuthError as error:
+                except FATAL_ERRORS as error:
                     report.errors.append(str(error))
                     break
                 except MailError as error:
@@ -110,7 +108,7 @@ class Syncer:
             uploaded_before = len(report.uploaded)
             try:
                 self._process_message(uid, report)
-            except (DiskAuthError, MailAuthError):
+            except FATAL_ERRORS:
                 state.folders[folder.name] = FolderState(uidvalidity, max(cursor, uid - 1))
                 raise
             except (DiskError, MailError) as error:

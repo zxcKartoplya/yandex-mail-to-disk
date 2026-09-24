@@ -20,6 +20,10 @@ class DiskAuthError(DiskError):
     pass
 
 
+class DiskConnectionError(DiskError):
+    pass
+
+
 @dataclass
 class RemoteFile:
     size: int | None
@@ -52,6 +56,8 @@ def _fail(response, action: str) -> DiskError:
         return DiskError("На Яндекс Диске закончилось место.")
     if status == 413:
         return DiskError(f"{action}: файл слишком большой для Яндекс Диска.")
+    if status == 429 or status >= 500:
+        return DiskConnectionError(f"{action}: Яндекс Диск временно недоступен (код {status}).")
     return DiskError(f"{action}: Яндекс Диск ответил {status}: {response.text[:300]}")
 
 
@@ -65,7 +71,7 @@ class BaseDisk:
         try:
             return self.session.request(method, url, **kwargs)
         except requests.RequestException as error:
-            raise DiskError(f"{action}: нет связи с Яндекс Диском ({error}).") from error
+            raise DiskConnectionError(f"{action}: нет связи с Яндекс Диском ({error}).") from error
 
     def ensure_folder(self, path: str) -> None:
         current = ""
