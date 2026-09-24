@@ -25,6 +25,7 @@ jobs:
         shell: pwsh
         env:
           MAIL2DISK_HOME: ${{ runner.temp }}\m2d
+          PYTHONIOENCODING: utf-8
         run: |
           python -c "from mail2disk.scheduler import install, is_installed, uninstall; print(install(9, 0)); assert is_installed(); print(uninstall()); assert not is_installed()"
 
