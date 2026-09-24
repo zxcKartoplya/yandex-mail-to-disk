@@ -7,3 +7,4 @@ dist/
 test.env
 .pytest_cache/
 .venv-win/
+.DS_Store

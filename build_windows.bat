@@ -10,7 +10,7 @@ if errorlevel 1 (
 if not exist .venv-win\Scripts\python.exe py -3 -m venv .venv-win
 .venv-win\Scripts\python.exe -m pip install -q -r requirements-dev.txt || goto :error
 .venv-win\Scripts\python.exe -m pytest -q || goto :error
-.venv-win\Scripts\pyinstaller.exe --onefile --console --clean --noconfirm --name YandexMailToDisk run.py || goto :error
+.venv-win\Scripts\pyinstaller.exe --onefile --console --clean --noconfirm --specpath build --workpath build --name YandexMailToDisk "%~dp0run.py" || goto :error
 echo.
 echo Done: dist\YandexMailToDisk.exe
 pause

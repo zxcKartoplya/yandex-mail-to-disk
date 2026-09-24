@@ -6,6 +6,6 @@ if [ ! -x .venv/bin/python ]; then
 fi
 .venv/bin/pip install -q -r requirements-dev.txt
 .venv/bin/python -m pytest -q
-.venv/bin/pyinstaller --onefile --console --clean --noconfirm --name YandexMailToDisk run.py
+.venv/bin/pyinstaller --onefile --console --clean --noconfirm --specpath build --workpath build --name YandexMailToDisk "$PWD/run.py"
 echo
 echo "Done: dist/YandexMailToDisk ($(uname -m))"
