@@ -10,7 +10,7 @@ from datetime import date, datetime
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 LIST_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?P<delimiter>"(?:[^"\\]|\\.)*"|NIL)\s+(?P<name>.+)$', re.IGNORECASE)
 STATUS_RE = re.compile(r"(UIDNEXT|UIDVALIDITY)\s+(\d+)", re.IGNORECASE)
-SKIP_FLAGS = {"\\noselect", "\\nonexistent", "\\junk", "\\spam", "\\trash", "\\sent", "\\drafts", "\\all"}
+SKIP_FLAGS = {"\\noselect", "\\nonexistent", "\\junk", "\\spam", "\\trash", "\\sent", "\\drafts", "\\templates", "\\all"}
 SKIP_NAMES = {
     "spam", "junk", "trash", "sent", "drafts", "outbox",
     "спам", "удаленные", "удалённые", "отправленные", "черновики", "исходящие", "корзина",

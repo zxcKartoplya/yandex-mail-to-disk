@@ -61,6 +61,7 @@ def folder(display, flags=()):
         (folder("Исходящие"), False),
         (folder("Outbox"), False),
         (folder("Root", ["\\noselect"]), False),
+        (folder("Drafts/template", ["\\templates"]), False),
     ],
 )
 def test_should_scan_defaults(item, expected):
