@@ -62,7 +62,7 @@ class Syncer:
             self.mail.connect()
         except (MailError, DiskError) as error:
             report.errors.append(str(error))
-            return report
+            return self._finish(state, report)
         try:
             folders = [f for f in self.mail.list_folders() if should_scan(f, self.config.include_folders)]
             log.info("Папки для проверки: %s", ", ".join(f.display_name for f in folders) or "нет")
@@ -78,8 +78,13 @@ class Syncer:
             report.errors.append(str(error))
         finally:
             self.mail.close()
+        return self._finish(state, report)
+
+    def _finish(self, state: State, report: Report) -> Report:
+        state.last_attempt = self.now.isoformat(timespec="seconds")
+        state.last_error = "\n".join(report.errors) if report.errors else None
         if report.ok:
-            state.last_success = self.now.isoformat(timespec="seconds")
+            state.last_success = state.last_attempt
         self.store.save(state)
         return report
 

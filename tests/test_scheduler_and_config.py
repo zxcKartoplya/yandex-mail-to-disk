@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from mail2disk import cli
 from mail2disk.config import Config, ConfigError, load_config, load_env_file, save_config
 from mail2disk.scheduler import launchd_plist, windows_task_xml
 from mail2disk.state import FileStateStore, FolderState, State
@@ -73,9 +74,43 @@ def test_config_from_env_file(tmp_path):
 def test_file_state_store_roundtrip_and_corruption(tmp_path):
     store = FileStateStore(tmp_path / "state.json")
     assert store.load() == State()
-    state = State(folders={"INBOX": FolderState(5, 42)}, failures={"INBOX|5|43": 1}, last_success="2026-09-24T09:00:00")
+    state = State(
+        folders={"INBOX": FolderState(5, 42)},
+        failures={"INBOX|5|43": 1},
+        last_success="2026-09-24T09:00:00",
+        last_attempt="2026-09-25T09:00:00",
+        last_error="Яндекс Диск временно недоступен",
+    )
     store.save(state)
     assert store.load() == state
     (tmp_path / "state.json").write_text("{broken", encoding="utf-8")
     assert store.load() == State()
     assert (tmp_path / "state.broken.json").exists()
+
+
+def test_old_state_without_attempt_fields_is_supported():
+    state = State.from_json('{"folders": {}, "failures": {}, "last_success": "2026-09-24T09:00:00"}')
+
+    assert state.last_attempt is None
+    assert state.last_error is None
+
+
+def test_status_shows_last_background_error(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "state.json"
+    FileStateStore(path).save(
+        State(
+            last_success="2026-10-08T09:00:00",
+            last_attempt="2026-10-27T09:00:00",
+            last_error="Создание папки: Яндекс Диск временно недоступен (код 503).",
+        )
+    )
+    monkeypatch.setattr(cli, "state_path", lambda: path)
+    monkeypatch.setattr(cli, "log_path", lambda: tmp_path / "log.txt")
+    monkeypatch.setattr(cli, "is_installed", lambda: True)
+
+    cli.print_status(Config(email="me@yandex.ru", mail_password="mail", disk_password="disk"))
+
+    output = capsys.readouterr().out
+    assert "Последняя попытка: 2026-10-27 09:00:00" in output
+    assert "Последняя успешная выгрузка: 2026-10-08 09:00:00" in output
+    assert "Яндекс Диск временно недоступен (код 503)" in output

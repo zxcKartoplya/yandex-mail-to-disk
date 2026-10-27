@@ -18,12 +18,16 @@ class State:
     folders: dict[str, FolderState] = field(default_factory=dict)
     failures: dict[str, int] = field(default_factory=dict)
     last_success: str | None = None
+    last_attempt: str | None = None
+    last_error: str | None = None
 
     def to_json(self) -> str:
         data = {
             "folders": {name: vars(fs) for name, fs in self.folders.items()},
             "failures": self.failures,
             "last_success": self.last_success,
+            "last_attempt": self.last_attempt,
+            "last_error": self.last_error,
         }
         return json.dumps(data, ensure_ascii=False, indent=2)
 
@@ -34,6 +38,8 @@ class State:
             folders={name: FolderState(**fs) for name, fs in data.get("folders", {}).items()},
             failures={key: int(value) for key, value in data.get("failures", {}).items()},
             last_success=data.get("last_success"),
+            last_attempt=data.get("last_attempt"),
+            last_error=data.get("last_error"),
         )
 
 

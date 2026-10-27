@@ -177,10 +177,14 @@ def test_disk_auth_error_stops_everything():
     inbox = FakeFolder(messages={1: msg("a.pdf")})
     disk = FakeDisk()
     disk.auth_broken = True
-    report = run(FakeMail({"INBOX": inbox}), disk, MemoryStore())
+    store = MemoryStore()
+    report = run(FakeMail({"INBOX": inbox}), disk, store)
 
     assert not report.ok
     assert "нет доступа" in report.errors[0]
+    assert store.state.last_attempt == "2026-09-24T09:00:00"
+    assert "нет доступа" in store.state.last_error
+    assert store.state.last_success is None
 
 
 def test_messages_without_attachments_do_not_create_folders():

@@ -82,7 +82,11 @@ def print_status(config: Config | None) -> None:
     print(f"Почта: {config.email}")
     print(f"Папка на Диске: {config.disk_folder}")
     print(f"Автозапуск: {'включён, каждый день в ' + config.run_time if is_installed() else 'выключен'}")
+    print(f"Последняя попытка: {state.last_attempt.replace('T', ' ') if state.last_attempt else 'ещё не было'}")
     print(f"Последняя успешная выгрузка: {state.last_success.replace('T', ' ') if state.last_success else 'ещё не было'}")
+    if state.last_error:
+        print("Последняя попытка завершилась с ошибкой:")
+        print("  " + state.last_error.replace("\n", "\n  "))
     print(f"Журнал работы: {log_path()}")
 
 
