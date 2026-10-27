@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from mail2disk.disk import DiskAuthError, DiskError, RestDisk, WebDavDisk
+from mail2disk.disk import DiskAuthError, DiskConnectionError, DiskError, RestDisk, WebDavDisk
 
 PROPFIND_FILE = b"""<?xml version="1.0" encoding="utf-8"?>
 <d:multistatus xmlns:d="DAV:"><d:response><d:href>/a/b.pdf</d:href><d:propstat><d:status>HTTP/1.1 200 OK</d:status>
@@ -86,6 +86,14 @@ def test_webdav_upload_ok_and_auth_error():
 def test_webdav_no_space():
     disk, _ = webdav(FakeResponse(507))
     with pytest.raises(DiskError, match="закончилось место"):
+        disk.upload("a/b.pdf", b"abc")
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_webdav_temporary_status_is_retryable(status):
+    disk, _ = webdav(FakeResponse(status))
+
+    with pytest.raises(DiskConnectionError):
         disk.upload("a/b.pdf", b"abc")
 
 

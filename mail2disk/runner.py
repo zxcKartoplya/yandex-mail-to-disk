@@ -3,6 +3,7 @@ import os
 import time
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
+from typing import Callable, Iterable
 
 from .config import Config
 from .disk import make_disk
@@ -13,6 +14,7 @@ from .sync import Report, Syncer
 
 STALE_LOCK_SECONDS = 3 * 60 * 60
 STATE_FILE_ON_DISK = ".mail2disk-state.json"
+RETRY_DELAYS = (60, 300, 900)
 
 
 class AlreadyRunning(Exception):
@@ -64,3 +66,24 @@ def run_once(config: Config, state_on_disk: bool = False) -> Report:
     report = Syncer(config, mail, disk, store).run()
     log.info("Итог:\n%s", report.summary())
     return report
+
+
+def run_with_retries(
+    config: Config,
+    retry_delays: Iterable[int] = RETRY_DELAYS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Report:
+    delays = tuple(retry_delays)
+    for attempt in range(len(delays) + 1):
+        report = run_once(config)
+        if report.ok or not report.retryable or attempt == len(delays):
+            return report
+        delay = delays[attempt]
+        logging.getLogger(__name__).warning(
+            "Временный сбой. Повторная попытка %d из %d через %d мин.",
+            attempt + 2,
+            len(delays) + 1,
+            max(1, delay // 60),
+        )
+        sleep(delay)
+    raise RuntimeError("Недостижимое состояние повторной выгрузки")

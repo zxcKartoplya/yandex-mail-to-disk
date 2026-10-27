@@ -25,6 +25,7 @@ class Report:
     duplicates: int = 0
     given_up: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    retryable: bool = False
 
     @property
     def ok(self) -> bool:
@@ -62,6 +63,7 @@ class Syncer:
             self.mail.connect()
         except (MailError, DiskError) as error:
             report.errors.append(str(error))
+            report.retryable = isinstance(error, (MailConnectionError, DiskConnectionError))
             return self._finish(state, report)
         try:
             folders = [f for f in self.mail.list_folders() if should_scan(f, self.config.include_folders)]
@@ -71,11 +73,13 @@ class Syncer:
                     self._sync_folder(folder, state, report)
                 except FATAL_ERRORS as error:
                     report.errors.append(str(error))
+                    report.retryable = isinstance(error, (MailConnectionError, DiskConnectionError))
                     break
                 except MailError as error:
                     report.errors.append(f"Папка «{folder.display_name}»: {error}")
         except MailError as error:
             report.errors.append(str(error))
+            report.retryable = isinstance(error, MailConnectionError)
         finally:
             self.mail.close()
         return self._finish(state, report)

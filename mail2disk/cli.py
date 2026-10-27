@@ -10,7 +10,7 @@ from .config import Config, ConfigError, load_config, load_env_file, save_config
 from .disk import DiskError
 from .imap_source import MailError
 from .paths import app_dir, config_path, log_path, state_path
-from .runner import AlreadyRunning, run_lock, run_once, setup_logging
+from .runner import AlreadyRunning, run_lock, run_with_retries, setup_logging
 from .scheduler import SchedulerError, install, is_installed, uninstall
 from .state import FileStateStore
 from .wizard import WizardCancelled, check_disk, check_mail, run_wizard
@@ -42,7 +42,7 @@ def _load(env_file: str | None) -> Config | None:
 def do_run(config: Config) -> int:
     try:
         with run_lock():
-            report = run_once(config)
+            report = run_with_retries(config)
     except AlreadyRunning as error:
         log.warning(str(error))
         return EXIT_ALREADY_RUNNING

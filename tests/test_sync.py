@@ -182,6 +182,7 @@ def test_disk_auth_error_stops_everything():
 
     assert not report.ok
     assert "нет доступа" in report.errors[0]
+    assert not report.retryable
     assert store.state.last_attempt == "2026-09-24T09:00:00"
     assert "нет доступа" in store.state.last_error
     assert store.state.last_success is None
@@ -218,4 +219,5 @@ def test_network_outage_stops_remaining_folders():
     report = run(mail, disk, MemoryStore())
 
     assert len(report.errors) == 1
+    assert report.retryable
     assert mail.fetched == [("INBOX", 1)]
