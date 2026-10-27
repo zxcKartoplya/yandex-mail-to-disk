@@ -28,6 +28,12 @@ def installed_executable_path() -> Path:
     return app_dir() / name
 
 
+def needs_windows_install_update() -> bool:
+    if sys.platform != "win32" or not is_frozen():
+        return False
+    return Path(sys.executable).resolve() != installed_executable_path().resolve()
+
+
 def install_executable() -> Path:
     current = Path(sys.executable).resolve()
     target = installed_executable_path()

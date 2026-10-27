@@ -70,7 +70,7 @@ PyInstaller собирает только под ту ОС, на которой 
 - **macOS:** `./build_mac.sh` → `dist/YandexMailToDisk`. Архитектура совпадает с машиной сборки
   (arm64 на Apple Silicon). Для Intel-маков собирать на Intel или через universal2-Python.
 - **Windows:** на любом Windows-компьютере с Python 3.12+ дважды щёлкнуть `build_windows.bat`
-  → `dist\YandexMailToDisk.exe`.
+  → `dist\YandexMailToDisk-Installer.exe`.
 
 Оба скрипта перед сборкой прогоняют тесты.
 

@@ -30,24 +30,34 @@ jobs:
           python -c "from mail2disk.scheduler import install, is_installed, uninstall; print(install(9, 0)); assert is_installed(); print(uninstall()); assert not is_installed()"
 
       - name: Build exe
-        run: pyinstaller --onefile --console --clean --noconfirm --specpath build --workpath build --name YandexMailToDisk "${{ github.workspace }}\run.py"
+        run: pyinstaller --onefile --console --clean --noconfirm --specpath build --workpath build --name YandexMailToDisk-Installer "${{ github.workspace }}\run.py"
 
       - name: Smoke test exe
         shell: pwsh
         env:
           MAIL2DISK_HOME: ${{ runner.temp }}\m2d-exe
         run: |
-          .\dist\YandexMailToDisk.exe --version
-          .\dist\YandexMailToDisk.exe --status
-          .\dist\YandexMailToDisk.exe --run
+          .\dist\YandexMailToDisk-Installer.exe --version
+          .\dist\YandexMailToDisk-Installer.exe --status
+          .\dist\YandexMailToDisk-Installer.exe --run
           if ($LASTEXITCODE -ne 2) { throw "expected exit code 2 without config, got $LASTEXITCODE" }
+          @{email="test@yandex.ru"; mail_password="mail"; disk_password="disk"; run_time="09:00"} |
+            ConvertTo-Json |
+            Set-Content -Encoding utf8 "$env:MAIL2DISK_HOME\config.json"
+          "0" | .\dist\YandexMailToDisk-Installer.exe
+          if ($LASTEXITCODE -ne 0) { throw "installer failed with exit code $LASTEXITCODE" }
+          $installed = "$env:MAIL2DISK_HOME\YandexMailToDisk.exe"
+          if (-not (Test-Path $installed)) { throw "installed executable was not created" }
+          $version = & $installed --version
+          if ($version -ne "1.1.0") { throw "expected installed version 1.1.0, got $version" }
+          python -c "from mail2disk.scheduler import is_installed, uninstall; assert is_installed(); print(uninstall()); assert not is_installed()"
           exit 0
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path package | Out-Null
-          Copy-Item dist\YandexMailToDisk.exe package\
+          Copy-Item dist\YandexMailToDisk-Installer.exe package\
           Copy-Item "ИНСТРУКЦИЯ.md" "package\ИНСТРУКЦИЯ.txt"
 
       - uses: actions/upload-artifact@v4

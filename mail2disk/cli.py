@@ -11,7 +11,7 @@ from .disk import DiskError
 from .imap_source import MailError
 from .paths import app_dir, config_path, log_path, state_path
 from .runner import AlreadyRunning, run_lock, run_with_retries, setup_logging
-from .scheduler import SchedulerError, install, is_installed, uninstall
+from .scheduler import SchedulerError, install, is_installed, needs_windows_install_update, uninstall
 from .state import FileStateStore
 from .wizard import WizardCancelled, check_disk, check_mail, run_wizard
 
@@ -71,6 +71,21 @@ def do_setup(existing: Config | None) -> int:
         return EXIT_ERRORS
     print("\nГотово. Программу можно закрыть — дальше всё будет происходить само.")
     return code
+
+
+def update_existing_install(config: Config) -> int:
+    if not needs_windows_install_update():
+        return EXIT_OK
+    try:
+        hour, minute = config.run_hour_minute
+        install(hour, minute)
+    except SchedulerError as error:
+        print(f"\n✗ Не удалось обновить программу: {error}")
+        return EXIT_ERRORS
+    print(f"\n✓ Программа обновлена до версии {__version__}.")
+    print("Настройки, журнал и история обработанных писем сохранены.")
+    print("Установщик можно удалить после закрытия этого окна.")
+    return EXIT_OK
 
 
 def print_status(config: Config | None) -> None:
@@ -198,6 +213,11 @@ def main(argv: list[str] | None = None) -> int:
             return do_remove()
         if args.setup:
             return do_setup(load_config(config_path()))
+        existing = load_config(config_path())
+        if existing is not None:
+            code = update_existing_install(existing)
+            if code != EXIT_OK:
+                return code
         return interactive_menu()
     except ConfigError as error:
         log.error(str(error))

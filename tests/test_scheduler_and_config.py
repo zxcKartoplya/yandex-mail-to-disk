@@ -1,3 +1,4 @@
+import io
 import plistlib
 import sys
 import xml.etree.ElementTree as ET
@@ -5,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mail2disk import cli
+from mail2disk import cli, scheduler
 from mail2disk.config import Config, ConfigError, load_config, load_env_file, save_config
 from mail2disk.scheduler import launchd_plist, windows_task_xml
 from mail2disk.state import FileStateStore, FolderState, State
@@ -114,3 +115,52 @@ def test_status_shows_last_background_error(tmp_path, monkeypatch, capsys):
     assert "Последняя попытка: 2026-10-27 09:00:00" in output
     assert "Последняя успешная выгрузка: 2026-10-08 09:00:00" in output
     assert "Яндекс Диск временно недоступен (код 503)" in output
+
+
+def test_external_frozen_windows_executable_needs_update(tmp_path, monkeypatch):
+    installed = tmp_path / "YandexMailToDisk.exe"
+    monkeypatch.setattr(scheduler.sys, "platform", "win32")
+    monkeypatch.setattr(scheduler.sys, "executable", str(tmp_path / "YandexMailToDisk-Installer.exe"))
+    monkeypatch.setattr(scheduler, "is_frozen", lambda: True)
+    monkeypatch.setattr(scheduler, "installed_executable_path", lambda: installed)
+
+    assert scheduler.needs_windows_install_update()
+
+
+def test_installed_windows_executable_does_not_update_itself(tmp_path, monkeypatch):
+    installed = tmp_path / "YandexMailToDisk.exe"
+    monkeypatch.setattr(scheduler.sys, "platform", "win32")
+    monkeypatch.setattr(scheduler.sys, "executable", str(installed))
+    monkeypatch.setattr(scheduler, "is_frozen", lambda: True)
+    monkeypatch.setattr(scheduler, "installed_executable_path", lambda: installed)
+
+    assert not scheduler.needs_windows_install_update()
+
+
+def test_existing_install_updates_without_changing_config(monkeypatch, capsys):
+    config = Config(email="me@yandex.ru", mail_password="mail", disk_password="disk", run_time="07:25")
+    calls = []
+    monkeypatch.setattr(cli, "needs_windows_install_update", lambda: True)
+    monkeypatch.setattr(cli, "install", lambda hour, minute: calls.append((hour, minute)))
+
+    assert cli.update_existing_install(config) == cli.EXIT_OK
+    assert calls == [(7, 25)]
+    assert config.mail_password == "mail"
+    assert config.disk_password == "disk"
+    output = capsys.readouterr().out
+    assert "Программа обновлена до версии 1.1.0" in output
+    assert "Настройки, журнал и история обработанных писем сохранены" in output
+
+
+def test_first_interactive_run_still_opens_setup(monkeypatch):
+    monkeypatch.setattr(cli, "setup_logging", lambda console=True: None)
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "interactive_menu", lambda: 17)
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO())
+    monkeypatch.setattr(
+        cli,
+        "update_existing_install",
+        lambda config: pytest.fail("update must not run before first setup"),
+    )
+
+    assert cli.main([]) == 17
