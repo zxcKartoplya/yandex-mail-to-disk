@@ -7,10 +7,23 @@ def config():
     return Config(email="me@yandex.ru", mail_password="mail", disk_password="disk")
 
 
+class Clock:
+    def __init__(self):
+        self.now = 0
+        self.sleeps = []
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
 def test_transient_failure_is_retried(monkeypatch):
     reports = iter([Report(errors=["временно недоступен"], retryable=True), Report()])
     attempts = []
-    sleeps = []
+    clock = Clock()
 
     def run_once(_config):
         attempts.append(_config)
@@ -18,16 +31,21 @@ def test_transient_failure_is_retried(monkeypatch):
 
     monkeypatch.setattr("mail2disk.runner.run_once", run_once)
 
-    report = run_with_retries(config(), retry_delays=(60, 300), sleep=sleeps.append)
+    report = run_with_retries(
+        config(),
+        sleep=clock.sleep,
+        clock=clock.monotonic,
+        run_id="test-run",
+    )
 
     assert report.ok
     assert len(attempts) == 2
-    assert sleeps == [60]
+    assert clock.sleeps == [60]
 
 
 def test_auth_failure_is_not_retried(monkeypatch):
     attempts = []
-    sleeps = []
+    clock = Clock()
 
     def run_once(_config):
         attempts.append(_config)
@@ -35,16 +53,21 @@ def test_auth_failure_is_not_retried(monkeypatch):
 
     monkeypatch.setattr("mail2disk.runner.run_once", run_once)
 
-    report = run_with_retries(config(), retry_delays=(60, 300), sleep=sleeps.append)
+    report = run_with_retries(
+        config(),
+        sleep=clock.sleep,
+        clock=clock.monotonic,
+        run_id="test-run",
+    )
 
     assert not report.ok
     assert len(attempts) == 1
-    assert sleeps == []
+    assert clock.sleeps == []
 
 
-def test_transient_failure_stops_after_retry_limit(monkeypatch):
+def test_transient_failure_repeats_every_fifteen_minutes_until_window_ends(monkeypatch):
     attempts = []
-    sleeps = []
+    clock = Clock()
 
     def run_once(_config):
         attempts.append(_config)
@@ -52,8 +75,36 @@ def test_transient_failure_stops_after_retry_limit(monkeypatch):
 
     monkeypatch.setattr("mail2disk.runner.run_once", run_once)
 
-    report = run_with_retries(config(), retry_delays=(60, 300), sleep=sleeps.append)
+    report = run_with_retries(
+        config(),
+        sleep=clock.sleep,
+        clock=clock.monotonic,
+        run_id="test-run",
+    )
+
+    assert not report.ok
+    assert len(attempts) == 14
+    assert clock.sleeps == [60, 300] + [900] * 11
+
+
+def test_time_spent_in_attempts_counts_toward_retry_window(monkeypatch):
+    attempts = []
+    clock = Clock()
+
+    def run_once(_config):
+        attempts.append(_config)
+        clock.now += 60 * 60
+        return Report(errors=["временно недоступен"], retryable=True)
+
+    monkeypatch.setattr("mail2disk.runner.run_once", run_once)
+
+    report = run_with_retries(
+        config(),
+        sleep=clock.sleep,
+        clock=clock.monotonic,
+        run_id="test-run",
+    )
 
     assert not report.ok
     assert len(attempts) == 3
-    assert sleeps == [60, 300]
+    assert clock.sleeps == [60, 300]

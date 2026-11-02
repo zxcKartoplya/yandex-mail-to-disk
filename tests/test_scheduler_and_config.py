@@ -27,6 +27,7 @@ def test_windows_task_xml_is_valid_and_daily():
     assert root.findtext(".//t:StartBoundary", namespaces=TASK_NS).endswith("T09:30:00")
     assert root.findtext(".//t:StartWhenAvailable", namespaces=TASK_NS) == "true"
     assert root.findtext(".//t:DisallowStartIfOnBatteries", namespaces=TASK_NS) == "false"
+    assert root.findtext(".//t:ExecutionTimeLimit", namespaces=TASK_NS) == "PT4H"
     assert root.findtext(".//t:Command", namespaces=TASK_NS).endswith("YandexMailToDisk.exe")
     assert root.findtext(".//t:Arguments", namespaces=TASK_NS) == "--run"
     assert root.findtext(".//t:UserId", namespaces=TASK_NS) == r"PC\Иван Петров"
@@ -148,7 +149,7 @@ def test_existing_install_updates_without_changing_config(monkeypatch, capsys):
     assert config.mail_password == "mail"
     assert config.disk_password == "disk"
     output = capsys.readouterr().out
-    assert "Программа обновлена до версии 1.1.0" in output
+    assert "Программа обновлена до версии 1.2.0" in output
     assert "Настройки, журнал и история обработанных писем сохранены" in output
 
 

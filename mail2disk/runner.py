@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import uuid
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from typing import Callable, Iterable
@@ -14,7 +15,9 @@ from .sync import Report, Syncer
 
 STALE_LOCK_SECONDS = 3 * 60 * 60
 STATE_FILE_ON_DISK = ".mail2disk-state.json"
-RETRY_DELAYS = (60, 300, 900)
+RETRY_DELAYS = (60, 300)
+RETRY_INTERVAL = 15 * 60
+RETRY_WINDOW_SECONDS = 3 * 60 * 60
 
 
 class AlreadyRunning(Exception):
@@ -71,19 +74,40 @@ def run_once(config: Config, state_on_disk: bool = False) -> Report:
 def run_with_retries(
     config: Config,
     retry_delays: Iterable[int] = RETRY_DELAYS,
+    retry_interval: int = RETRY_INTERVAL,
+    retry_window_seconds: int = RETRY_WINDOW_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+    run_id: str | None = None,
 ) -> Report:
     delays = tuple(retry_delays)
-    for attempt in range(len(delays) + 1):
+    started = clock()
+    attempt = 1
+    run_id = run_id or uuid.uuid4().hex[:8]
+    log = logging.getLogger(__name__)
+    log.info("Запуск выгрузки %s (PID %d).", run_id, os.getpid())
+    while True:
         report = run_once(config)
-        if report.ok or not report.retryable or attempt == len(delays):
+        if report.ok:
+            log.info("Запуск выгрузки %s завершён успешно после %d попыток.", run_id, attempt)
             return report
-        delay = delays[attempt]
-        logging.getLogger(__name__).warning(
-            "Временный сбой. Повторная попытка %d из %d через %d мин.",
-            attempt + 2,
-            len(delays) + 1,
+        if not report.retryable:
+            log.error("Запуск выгрузки %s завершён без повтора: ошибка не временная.", run_id)
+            return report
+        delay = delays[attempt - 1] if attempt <= len(delays) else retry_interval
+        if clock() - started + delay > retry_window_seconds:
+            log.error(
+                "Запуск выгрузки %s завершён после %d попыток: исчерпан лимит повторов %d мин.",
+                run_id,
+                attempt,
+                retry_window_seconds // 60,
+            )
+            return report
+        log.warning(
+            "Временный сбой в запуске %s. Повторная попытка %d через %d мин.",
+            run_id,
+            attempt + 1,
             max(1, delay // 60),
         )
         sleep(delay)
-    raise RuntimeError("Недостижимое состояние повторной выгрузки")
+        attempt += 1

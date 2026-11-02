@@ -91,7 +91,7 @@ def windows_task_xml(command: list[str], working_dir: Path, hour: int, minute: i
     <StartWhenAvailable>true</StartWhenAvailable>
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
     <AllowStartOnDemand>true</AllowStartOnDemand>
-    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <ExecutionTimeLimit>PT4H</ExecutionTimeLimit>
     <Enabled>true</Enabled>
   </Settings>
   <Actions Context="Author">
